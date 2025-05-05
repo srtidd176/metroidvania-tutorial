@@ -7,7 +7,8 @@ public class PlayerController : MonoBehaviour
     [Header ("Horizontal Movement Settings")]
     [SerializeField] private float walkSpeed = 1;
     private float xAxis;
-    
+    [Space(5)]
+
     [Header ("Vertical Movement Settings")]
     [SerializeField] private float jumpForce = 45;
     private int jumpBufferCounter;
@@ -16,17 +17,29 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float coyoteTime;
     private int airJumpCounter = 0;
     [SerializeField] private int maxAirJumps;
+    [Space(5)]
 
     [Header ("Ground Check Settings")]
     [SerializeField] private Transform groundCheckPoint;
     [SerializeField] private float groundCheckY = 0.2f;
     [SerializeField] private float groundcheckX = 0.5f;
     [SerializeField] private LayerMask whatIsGround;
+    [Space(5)]
+
+    [Header ("Dash Settings")]
+    [SerializeField] private float dashSpeed;
+    [SerializeField] private float dashTime;
+    [SerializeField] private float dashCooldown;
+    private bool canDash = true;
+    private bool dashed;
+    [SerializeField] GameObject dashEffect;
+    [Space(5)]
 
     PlayerStateList pState;
     private Rigidbody2D rb;
     Animator anim;
     public static PlayerController Instance;
+    private float gravity;
 
     private void Awake() {
         if(Instance != null && Instance != this)
@@ -45,6 +58,7 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         anim = GetComponent<Animator>();
         pState = GetComponent<PlayerStateList>();
+        gravity = rb.gravityScale;
     }
 
     // Update is called once per frame
@@ -52,9 +66,12 @@ public class PlayerController : MonoBehaviour
     {
         GetInputs();
         UpdateJumpVariables();
+
+        if(pState.dashing) return;
         Flip();
         Move();
         Jump();
+        StartDash();
     }
 
     void GetInputs()
@@ -94,24 +111,54 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    void StartDash()
+    {
+        if(Input.GetButtonDown("Dash") && canDash && !dashed)
+        {
+            StartCoroutine(Dash());
+            dashed = true;
+        }
+        if (Grounded())
+        {
+            dashed = false;
+        }
+    }
+
+    IEnumerator Dash()
+    {
+        canDash = false;
+        pState.dashing = true;
+        anim.SetBool("Dashing",true);
+        rb.gravityScale = 0;
+        rb.velocity = new Vector2(transform.localScale.x * dashSpeed, 0);
+        //If I'm grounded, spawn this dash visual effect at my position.
+        if(Grounded()) Instantiate(dashEffect, transform);
+        yield return new WaitForSeconds(dashTime);
+        rb.gravityScale = gravity;
+        pState.dashing = false;
+        anim.SetBool("Dashing",false);
+        yield return new WaitForSeconds(dashCooldown);
+        canDash = true;
+    }
+
     void Jump()
     {
         if(Input.GetButtonUp("Jump") && rb.velocity.y > 0)
         {
             rb.velocity = new Vector2(rb.velocity.x,0);
-            pState.Jumping = false;
+            pState.jumping = false;
         }
 
-        if (!pState.Jumping)
+        if (!pState.jumping)
         {
             if(jumpBufferCounter > 0 && coyoteTimeCounter > 0)
             {
                 rb.velocity = new Vector3(rb.velocity.x, jumpForce);
-                pState.Jumping = true;
+                pState.jumping = true;
             }
             else if(!Grounded() && airJumpCounter < maxAirJumps && Input.GetButtonDown("Jump"))
             {
-                pState.Jumping = true;
+                pState.jumping = true;
                 airJumpCounter++;
                 rb.velocity = new Vector3(rb.velocity.x, jumpForce);
 
@@ -125,7 +172,7 @@ public class PlayerController : MonoBehaviour
     {
         if (Grounded())
         {
-            pState.Jumping = false;
+            pState.jumping = false;
             coyoteTimeCounter = coyoteTime;
             airJumpCounter = 0;
         }
