@@ -35,11 +35,20 @@ public class PlayerController : MonoBehaviour
     [SerializeField] GameObject dashEffect;
     [Space(5)]
 
+    [Header ("Attacking Settings")]
+    [SerializeField] private float timeBetweenAttack;
+    private bool attack = false;
+    private float timeSinceAttack;
+    [SerializeField] Transform sideAttackTransform, upAttackTransform, downAttackTransform;
+    [SerializeField] Vector2 sideAttackArea, upAttackArea, downAttackArea;
+    [Space(5)]
+
     PlayerStateList pState;
     private Rigidbody2D rb;
     Animator anim;
     public static PlayerController Instance;
     private float gravity;
+
 
     private void Awake() {
         if(Instance != null && Instance != this)
@@ -61,6 +70,14 @@ public class PlayerController : MonoBehaviour
         gravity = rb.gravityScale;
     }
 
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireCube(sideAttackTransform.position,sideAttackArea);
+        Gizmos.DrawWireCube(upAttackTransform.position,upAttackArea);
+        Gizmos.DrawWireCube(downAttackTransform.position,downAttackArea);   
+    }
+
     // Update is called once per frame
     void Update()
     {
@@ -72,11 +89,13 @@ public class PlayerController : MonoBehaviour
         Move();
         Jump();
         StartDash();
+        Attack();
     }
 
     void GetInputs()
     {
         xAxis = Input.GetAxisRaw("Horizontal");
+        attack = Input.GetMouseButtonDown(0);
     }
 
     void Flip()
@@ -139,6 +158,17 @@ public class PlayerController : MonoBehaviour
         anim.SetBool("Dashing",false);
         yield return new WaitForSeconds(dashCooldown);
         canDash = true;
+    }
+
+    void Attack()
+    {
+        timeSinceAttack += Time.deltaTime;
+        if (attack && timeSinceAttack >= timeBetweenAttack)
+        {
+            timeSinceAttack = 0;
+            anim.SetTrigger("Attacking");
+        }
+    
     }
 
     void Jump()
